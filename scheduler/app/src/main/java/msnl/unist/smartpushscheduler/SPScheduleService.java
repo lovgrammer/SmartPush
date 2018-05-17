@@ -1,5 +1,6 @@
 package msnl.unist.smartpushscheduler;
 
+
 import android.app.Notification;
 import android.app.Service;
 import android.content.BroadcastReceiver;
@@ -7,6 +8,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -17,6 +22,7 @@ import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
+import java.lang.Math;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.LinkedList;
@@ -25,7 +31,7 @@ import java.util.Random;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class SPScheduleService extends Service {
+public class SPScheduleService extends Service implements SensorEventListener {
     
     static final int NOTI_ARRIVED = 1;
     static final int NOTI_REMOVED = 2;
@@ -33,59 +39,26 @@ public class SPScheduleService extends Service {
     public static final String ACTION_CUSTOM = "msnl.unist.smartpushscheduler.ACTION_CUSTOM";
     private boolean isRegistered = false;
     Queue<SPNotification> notiQueue = new LinkedList<SPNotification>();
-    // public static ArrayList<SPDay> dayList = new ArrayList<SPDay>();
-    
+
+    private SensorManager mSensorManager;
+    private Sensor mAccelerometer;
+    private Sensor mGyro;
     @Override
     public void onCreate() {
 	super.onCreate();
-	
 	Log.i("SPScheduleService", "onCreate()");
 	registerScreenEvent();
+
 	if (!isRegistered) {
 	    isRegistered = true;
 	}
 
-	// for (int i=0; i<7; i++) {
-	//     dayList.add(new SPDay());
-	// }
-
-	// pushMockData();
-	// showNotiProbMap();
+	mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+	mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	mGyro = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+	mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+	mSensorManager.registerListener(this, mGyro, SensorManager.SENSOR_DELAY_NORMAL);
     }
-
-    // public void pushMockData() {
-    // 	int seed = 0;
-    // 	for (int i=0; i<7; i++) {
-    // 	    seed++;
-    // 	    SPDay d = dayList.get(i);
-    // 	    for (SPHour h : d.getHourList()) {
-    // 		seed++;
-    // 		Random generator = new Random(seed);
-    // 		h.decisionCount = generator.nextInt(10);
-    // 	    }
-    // 	}
-    // }
-
-    // public String showNotiProbMap() {
-    // 	String ret = "";
-    // 	int dayCount=0;
-    // 	for (SPDay d : dayList) {
-    // 	    int totalDCount = d.getDecisionCount();
-    // 	    String text = "";
-    // 	    for (SPHour h : d.getHourList()) {
-    // 		// float prob = (float) h.decisionCount / totalDCount;
-    // 		// text += prob;
-    // 		text += h.decisionCount;
-    // 		text += ", ";
-    // 	    }
-
-    // 	    ret = "[" + dayCount + "] " + text;
-    // 	    // text += "\n";
-    // 	    Log.i("SPNotiListenerService", "[" + dayCount + "] " + text);
-    // 	    dayCount++;
-    // 	}
-    // 	return ret;
-    // }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -96,11 +69,11 @@ public class SPScheduleService extends Service {
     @Override
     public void onDestroy() {
 	super.onDestroy();
+	Log.i("SPScheduleService", "onDestroy()");
 	if (isRegistered) {
 	    unregisterReceiver(mReceiver);
 	    isRegistered = false;
 	}
-	Log.i("SPScheduleService", "onDestroy()");
     }
 
     class IncomingHandler extends Handler {
@@ -169,6 +142,42 @@ public class SPScheduleService extends Service {
 
 	IntentFilter filterScreenOFF = new IntentFilter(Intent.ACTION_SCREEN_OFF);
 	registerReceiver(mReceiver, filterScreenOFF);
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+	
+    }
+    
+    float prevAccAverage = 0;
+    float prevGyroAverage = 0;
+    boolean accFlag = false;
+    boolean gyroFlag = false;
+	
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+	if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+	    float accX = event.values[0];
+	    float accY = event.values[1];
+	    float accZ = event.values[2];
+	    
+	    float accAverage = (float)Math.sqrt((accX * accX + accY * accY + accZ * accZ));
+	    accFlag = (accAverage - prevAccAverage > 5);
+	    prevAccAverage = accAverage;
+	    // Log.i("SPScheduleService", "accAverage :" + accAverage);
+	} else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+	    float gyroX = event.values[0];
+	    float gyroY = event.values[1];
+	    float gyroZ = event.values[2];
+	    float gyroAverage = (float)Math.sqrt((gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ));
+	    gyroFlag = (gyroAverage - prevGyroAverage > 3);
+	    prevGyroAverage = gyroAverage;
+	    // Log.i("SPScheduleService", "gyroAverage :" + gyroAverage);
+	}
+	if (accFlag || gyroFlag) {
+	    SPNotification noti = notiQueue.poll();
+	    if (noti != null) noti.show(SPScheduleService.this);	    
+	}
     }
     
 }
