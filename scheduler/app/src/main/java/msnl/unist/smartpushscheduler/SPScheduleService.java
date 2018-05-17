@@ -2,7 +2,10 @@ package msnl.unist.smartpushscheduler;
 
 import android.app.Notification;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,6 +19,8 @@ import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Random;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -26,54 +31,61 @@ public class SPScheduleService extends Service {
     static final int NOTI_REMOVED = 2;
     
     public static final String ACTION_CUSTOM = "msnl.unist.smartpushscheduler.ACTION_CUSTOM";
-    public static ArrayList<SPDay> dayList = new ArrayList<SPDay>();
+    private boolean isRegistered = false;
+    Queue<SPNotification> notiQueue = new LinkedList<SPNotification>();
+    // public static ArrayList<SPDay> dayList = new ArrayList<SPDay>();
     
     @Override
     public void onCreate() {
 	super.onCreate();
+	
 	Log.i("SPScheduleService", "onCreate()");
-
-	for (int i=0; i<7; i++) {
-	    dayList.add(new SPDay());
+	registerScreenEvent();
+	if (!isRegistered) {
+	    isRegistered = true;
 	}
 
-	pushMockData();
-	showNotiProbMap();
+	// for (int i=0; i<7; i++) {
+	//     dayList.add(new SPDay());
+	// }
+
+	// pushMockData();
+	// showNotiProbMap();
     }
 
-    public void pushMockData() {
-	int seed = 0;
-	for (int i=0; i<7; i++) {
-	    seed++;
-	    SPDay d = dayList.get(i);
-	    for (SPHour h : d.getHourList()) {
-		seed++;
-		Random generator = new Random(seed);
-		h.decisionCount = generator.nextInt(10);
-	    }
-	}
-    }
+    // public void pushMockData() {
+    // 	int seed = 0;
+    // 	for (int i=0; i<7; i++) {
+    // 	    seed++;
+    // 	    SPDay d = dayList.get(i);
+    // 	    for (SPHour h : d.getHourList()) {
+    // 		seed++;
+    // 		Random generator = new Random(seed);
+    // 		h.decisionCount = generator.nextInt(10);
+    // 	    }
+    // 	}
+    // }
 
-    public String showNotiProbMap() {
-	String ret = "";
-	int dayCount=0;
-	for (SPDay d : dayList) {
-	    int totalDCount = d.getDecisionCount();
-	    String text = "";
-	    for (SPHour h : d.getHourList()) {
-		// float prob = (float) h.decisionCount / totalDCount;
-		// text += prob;
-		text += h.decisionCount;
-		text += ", ";
-	    }
+    // public String showNotiProbMap() {
+    // 	String ret = "";
+    // 	int dayCount=0;
+    // 	for (SPDay d : dayList) {
+    // 	    int totalDCount = d.getDecisionCount();
+    // 	    String text = "";
+    // 	    for (SPHour h : d.getHourList()) {
+    // 		// float prob = (float) h.decisionCount / totalDCount;
+    // 		// text += prob;
+    // 		text += h.decisionCount;
+    // 		text += ", ";
+    // 	    }
 
-	    ret = "[" + dayCount + "] " + text;
-	    // text += "\n";
-	    Log.i("SPNotiListenerService", "[" + dayCount + "] " + text);
-	    dayCount++;
-	}
-	return ret;
-    }
+    // 	    ret = "[" + dayCount + "] " + text;
+    // 	    // text += "\n";
+    // 	    Log.i("SPNotiListenerService", "[" + dayCount + "] " + text);
+    // 	    dayCount++;
+    // 	}
+    // 	return ret;
+    // }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -84,6 +96,10 @@ public class SPScheduleService extends Service {
     @Override
     public void onDestroy() {
 	super.onDestroy();
+	if (isRegistered) {
+	    unregisterReceiver(mReceiver);
+	    isRegistered = false;
+	}
 	Log.i("SPScheduleService", "onDestroy()");
     }
 
@@ -98,21 +114,27 @@ public class SPScheduleService extends Service {
 		    JSONObject json = new JSONObject(rmsg);
 		    String title = json.getString("title");
 		    String body = json.getString("body");
+		    String packageName = json.getString("package");
 		    Log.i("SPScheduleService", "title : " + title);
 		    Log.i("SPScheduleService", "body : " + body);
+		    Log.i("SPScheduleService", "package : " + packageName);
+		    notiQueue.offer(new SPNotification(title, body, packageName, System.currentTimeMillis()));
 		} catch (JSONException e) {
 		    Log.i("SPScheduleService", "exception : " + e.getMessage());
 		}
 		
-		showNotiProbMap();
+		// showNotiProbMap();
 		    
 		break;
 	    case NOTI_REMOVED:
+		Log.i("SPScheduleService", "Noti Removed");
 		Calendar cal = Calendar.getInstance();
-		SPDay d =  dayList.get(cal.get(Calendar.DAY_OF_WEEK) - 1);
-		SPHour h = d.getHourList().get(cal.get(Calendar.HOUR_OF_DAY));
+		// SPDay d =  dayList.get(cal.get(Calendar.DAY_OF_WEEK) - 1);
+		// SPHour h = d.getHourList().get(cal.get(Calendar.HOUR_OF_DAY));
 
-		h.decisionCount += 1;		
+		// h.decisionCount += 1;
+		// showNotiProbMap();
+		
 		break;
 	    default:
 		super.handleMessage(msg);
@@ -128,5 +150,26 @@ public class SPScheduleService extends Service {
 	Log.i("SPScheduleService", "onBind()");
 	return mMessenger.getBinder();
     }
+
+    private BroadcastReceiver mReceiver = new BroadcastReceiver() {
+	    public void onReceive(Context context, Intent intent) {
+		if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)) {
+		    Log.i("SPScheduleService", "screen off");
+		} else if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
+		    Log.i("SPScheduleService", "screen on");
+		    SPNotification noti = notiQueue.poll();
+		    if (noti != null) noti.show(SPScheduleService.this);
+		}
+	    }
+	};
+
+    private void registerScreenEvent() {
+	IntentFilter filterScreenON = new IntentFilter(Intent.ACTION_SCREEN_ON);
+	registerReceiver(mReceiver, filterScreenON);
+
+	IntentFilter filterScreenOFF = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+	registerReceiver(mReceiver, filterScreenOFF);
+    }
+    
 }
 

@@ -117,6 +117,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 	    JSONObject json = new JSONObject();
 	    json.put("title", remoteMessage.getNotification().getTitle());
 	    json.put("body", remoteMessage.getNotification().getBody());
+	    json.put("package", "msnl.unist.smartpush");
 	
 	    Message msg = Message.obtain(null, NOTI_ARRIVED, 0, 0);
 	    Bundle data = new Bundle();
