@@ -1,5 +1,6 @@
 package msnl.unist.smartpushscheduler;
 
+import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -28,13 +29,22 @@ public class SPNotification {
 	    BitmapDrawable bitmapDrawable = (BitmapDrawable) icon;
 	    // imageView.setImageDrawable(icon);
 
+	    NotificationCompat.BigTextStyle bigText = new NotificationCompat.BigTextStyle();
+	    bigText.bigText(title);
+	    bigText.setBigContentTitle(body);
+
 	    NotificationCompat.Builder mBuilder =
 		new NotificationCompat.Builder(context)
 		.setSmallIcon(context.getApplicationInfo().icon)
 		.setLargeIcon(bitmapDrawable.getBitmap())
 		.setContentTitle(title)
 		// .setContentIntent(pendingIntent)
-		.setContentText(body);
+		.setContentText(body)
+		.setDefaults(Notification.DEFAULT_ALL)
+		.setStyle(bigText)
+		.setPriority(NotificationManager.IMPORTANCE_HIGH);
+
+	    mBuilder.setAutoCancel(true);
 	
 	    mBuilder.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
 	    NotificationManager notificationManager
