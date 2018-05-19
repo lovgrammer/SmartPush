@@ -4,9 +4,11 @@ import android.app.Notification;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.graphics.Bitmap;
 import android.os.Bundle;
@@ -29,8 +31,6 @@ import org.json.JSONObject;
 
 public class SPNotiListenerService extends NotificationListenerService {
     
-    Queue<StatusBarNotification> notiQueue = new LinkedList<StatusBarNotification>();
-
     class PackageWrapper {
 	public String packageName;
 	public int score;
@@ -40,12 +40,20 @@ public class SPNotiListenerService extends NotificationListenerService {
 	}
     }
     
+    Queue<StatusBarNotification> notiQueue = new LinkedList<StatusBarNotification>();
     ArrayList<PackageWrapper> schedulablePackages = new ArrayList<PackageWrapper>();
+    
+    private boolean isRegistered = false;
     
     @Override
     public void onCreate() {
 	super.onCreate();
 	Log.i("SPNotiListenerService", "onCreate()");
+	
+	registerScreenEvent();
+	if (!isRegistered) {
+	    isRegistered = true;
+	}
     }
 
     @Override
@@ -58,6 +66,10 @@ public class SPNotiListenerService extends NotificationListenerService {
     public void onDestroy() {
 	super.onDestroy();
 	Log.i("SPNotiListenerService", "onDestroy()");
+	if (isRegistered) {
+	    unregisterReceiver(mReceiver);
+	    isRegistered = false;
+	}
     }
 
     @Override
@@ -89,15 +101,12 @@ public class SPNotiListenerService extends NotificationListenerService {
 	}
     }
     
-    int count = 0;
+    public static int count = 0;
     String tmpPackageName;
-    
+    ArrayList<String> clearAllPackageNames = new ArrayList<String>();
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
-	if (count > 0) {
-	    return;
-	}
-	tmpPackageName = sbn.getPackageName();
+	clearAllPackageNames.add(sbn.getPackageName());
 	Log.i("NotificationListener", "onNotificationRemoved() - " + sbn.toString());
 	if (System.currentTimeMillis() - sbn.getPostTime() > 60000 * 60 * 6) {
 	    createOrUpdateSchedulablePackage(sbn.getPackageName(), -1);		    
@@ -106,19 +115,21 @@ public class SPNotiListenerService extends NotificationListenerService {
 	}
 	StatusBarNotification[] activeNotis = SPNotiListenerService.this.getActiveNotifications();
 	for (StatusBarNotification noti :activeNotis) {
-	    createOrUpdateSchedulablePackage(noti.getPackageName(), 5);				
+	    createOrUpdateSchedulablePackage(noti.getPackageName(), 3);				
 	}
-	count++;
 	Thread t = new Thread() {
 		public void run() {
 		    try {
-			Thread.sleep(1000);
+			Thread.sleep(500);
 		    } catch (InterruptedException ignore) { }
-		    displaySchedulablePackage();
-		    if (count > 1) {
-			createOrUpdateSchedulablePackage(tmpPackageName, -5);
+		    
+		    if (clearAllPackageNames.size() > 1) {
+			for (String packageName : clearAllPackageNames) {
+			    createOrUpdateSchedulablePackage(packageName, 8);
+			}
+			displaySchedulablePackage();
 		    }
-		    count = 0;
+		    clearAllPackageNames.clear();
 		}
 	    };
 	t.start();
@@ -143,6 +154,29 @@ public class SPNotiListenerService extends NotificationListenerService {
 	for (PackageWrapper p : schedulablePackages) {
 	    Log.i("SPNotiListenerService", "[" + p.packageName + ", " + p.score + "]");	    
 	}	
+    }
+
+    private BroadcastReceiver mReceiver = new BroadcastReceiver() {
+	    public void onReceive(Context context, Intent intent) {
+		if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)) {
+		    Log.i("SPNotiListenerService", "screen off");
+		} else if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
+		    Log.i("SPNotiListenerService", "screen on");
+		    StatusBarNotification[] activeNotis = SPNotiListenerService.this.getActiveNotifications();
+		    for (StatusBarNotification noti :activeNotis) {
+			createOrUpdateSchedulablePackage(noti.getPackageName(), 1);				
+		    }
+		    displaySchedulablePackage();
+		}
+	    }
+	};
+
+    private void registerScreenEvent() {
+	IntentFilter filterScreenON = new IntentFilter(Intent.ACTION_SCREEN_ON);
+	registerReceiver(mReceiver, filterScreenON);
+
+	IntentFilter filterScreenOFF = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+	registerReceiver(mReceiver, filterScreenOFF);
     }
 }
 

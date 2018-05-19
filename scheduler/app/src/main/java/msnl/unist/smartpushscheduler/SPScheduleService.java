@@ -42,6 +42,7 @@ public class SPScheduleService extends Service implements SensorEventListener {
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
     private Sensor mGyro;
+    
     @Override
     public void onCreate() {
 	super.onCreate();
