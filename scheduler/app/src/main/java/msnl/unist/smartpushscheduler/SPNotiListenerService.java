@@ -1,8 +1,11 @@
 package msnl.unist.smartpushscheduler;
 
 import android.app.Notification;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.Bitmap;
@@ -18,37 +21,31 @@ import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Random;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 public class SPNotiListenerService extends NotificationListenerService {
     
-    private Messenger mService = null;
-    private boolean mBound;
+    Queue<StatusBarNotification> notiQueue = new LinkedList<StatusBarNotification>();
 
-    static final int NOTI_REMOVED = 2;
-    public static final String ACTION_CUSTOM = "msnl.unist.smartpushscheduler.ACTION_CUSTOM";
-
-    private ServiceConnection mConnection = new ServiceConnection() {
-	    public void onServiceConnected(ComponentName className, IBinder service) {
-		mService = new Messenger(service);
-		mBound = true;
-	    }
-
-	    public void onServiceDisconnected(ComponentName className) {
-		mService = null;
-		mBound = false;
-	    }
-	};
+    class PackageWrapper {
+	public String packageName;
+	public int score;
+	public PackageWrapper(String packageName, int score) {
+	    this.packageName = packageName;
+	    this.score = score;
+	}
+    }
+    
+    ArrayList<PackageWrapper> schedulablePackages = new ArrayList<PackageWrapper>();
     
     @Override
     public void onCreate() {
 	super.onCreate();
 	Log.i("SPNotiListenerService", "onCreate()");
-	if (!mBound) {
-	    doBindService();
-	}
     }
 
     @Override
@@ -61,9 +58,6 @@ public class SPNotiListenerService extends NotificationListenerService {
     public void onDestroy() {
 	super.onDestroy();
 	Log.i("SPNotiListenerService", "onDestroy()");
-	if (mBound) {
-	    doUnbindService();
-	}
     }
 
     @Override
@@ -82,69 +76,73 @@ public class SPNotiListenerService extends NotificationListenerService {
 	Log.i("SPScheduleService", "Title : " + title);
 	Log.i("SPScheduleService", "Text : " + text);
 	Log.i("SPScheduleService", "Sub Text : " + subText);
+	displaySchedulablePackage();
 	
-	// Calendar cal = Calendar.getInstance();
-	// SPDay d =  dayList.get(cal.get(Calendar.DAY_OF_WEEK) - 1);
-	// SPHour h = d.getHourList().get(cal.get(Calendar.HOUR_OF_DAY));
-	// h.postedCount += 1;
+	for (PackageWrapper p : schedulablePackages) {
+	    if (sbn.getPackageName().equals(p.packageName)) {
+		if (p.score > 7) {
+		    notiQueue.offer(sbn);
+		    SPNotiListenerService.this.cancelNotification(sbn.getKey());		    
+		}
+		return;
+	    }
+	}
     }
-
+    
+    int count = 0;
+    String tmpPackageName;
+    
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
+	if (count > 0) {
+	    return;
+	}
+	tmpPackageName = sbn.getPackageName();
 	Log.i("NotificationListener", "onNotificationRemoved() - " + sbn.toString());
-
-	// Calendar cal = Calendar.getInstance();
-	// SPDay d =  dayList.get(cal.get(Calendar.DAY_OF_WEEK) - 1);
-	// SPHour h = d.getHourList().get(cal.get(Calendar.HOUR_OF_DAY));
-
-	// h.decisionCount += 1;
-
-	updateNotiRemoved("", "");
+	if (System.currentTimeMillis() - sbn.getPostTime() > 60000 * 60 * 6) {
+	    createOrUpdateSchedulablePackage(sbn.getPackageName(), -1);		    
+	} else {
+	    createOrUpdateSchedulablePackage(sbn.getPackageName(), -5);
+	}
+	StatusBarNotification[] activeNotis = SPNotiListenerService.this.getActiveNotifications();
+	for (StatusBarNotification noti :activeNotis) {
+	    createOrUpdateSchedulablePackage(noti.getPackageName(), 5);				
+	}
+	count++;
+	Thread t = new Thread() {
+		public void run() {
+		    try {
+			Thread.sleep(1000);
+		    } catch (InterruptedException ignore) { }
+		    displaySchedulablePackage();
+		    if (count > 1) {
+			createOrUpdateSchedulablePackage(tmpPackageName, -5);
+		    }
+		    count = 0;
+		}
+	    };
+	t.start();
+	displaySchedulablePackage();
     }
 
-    public void doBindService() {
-	try {
-	    Intent intentForSPService = new Intent();
-	    Log.i("SPNotiListenerService", "init intent.componentName");
-	    intentForSPService.setComponent(new ComponentName("msnl.unist.smartpushscheduler", "msnl.unist.smartpushscheduler.SPScheduleService"));
-	    intentForSPService.setAction(ACTION_CUSTOM);
-	    Log.i("SPNotiListenerService", "Before bindService");
-	    if (bindService(intentForSPService, mConnection, 0)) {
-		Log.i("SPNotiListenerService", "Binding to Scheduler returned true");
-	    } else {
-		Log.i("SPNotiListenerService", "Binding to Scheduler returned false");
+    public void createOrUpdateSchedulablePackage(String packageName, int score) {
+	for (PackageWrapper p : schedulablePackages) {
+	    if (p.packageName.equals(packageName)) {
+		p.score += score;
+		if (p.score > 10) p.score = 10;
+		else if (p.score < -10) p.score = -10;
+		return;
 	    }
-	} catch (SecurityException e)  {
-	    Log.e("SPNotiListenerService", "cannot bind to Scheduler check permission in Manifest : " + e.getMessage());
 	}
+	schedulablePackages.add(new PackageWrapper(packageName, score));
     }
 
-    public void doUnbindService() {
-	if (mBound) {
-	    unbindService(mConnection);
-	    mBound = false;
-	}
-    }
 
-    public void updateNotiRemoved(String title, String body) {
-	Log.i("SPNotiListenerService", "updateNotiRemoved!");
-	if (!mBound)  return;
-	try {
-	    JSONObject json = new JSONObject();
-	    json.put("title", title);
-	    json.put("body", body);
-	
-	    Message msg = Message.obtain(null, NOTI_REMOVED, 0, 0);
-	    Bundle data = new Bundle();
-	    data.putString("data", json.toString());
-	    msg.setData(data);
-	    
-	    mService.send(msg);
-	} catch (RemoteException e) {
-	    e.printStackTrace();
-	} catch (JSONException e) {
-	    e.printStackTrace();
-	}
+    public void displaySchedulablePackage() {
+	Log.i("SPNotiListenerService", "** SchedulablePackage ***");	    
+	for (PackageWrapper p : schedulablePackages) {
+	    Log.i("SPNotiListenerService", "[" + p.packageName + ", " + p.score + "]");	    
+	}	
     }
 }
 
