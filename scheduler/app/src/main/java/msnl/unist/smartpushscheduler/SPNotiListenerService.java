@@ -1,7 +1,6 @@
 package msnl.unist.smartpushscheduler;
 
 import android.app.Notification;
-import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.BroadcastReceiver;
@@ -14,6 +13,7 @@ import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
@@ -28,8 +28,12 @@ import java.util.Queue;
 import java.util.Random;
 import org.json.JSONException;
 import org.json.JSONObject;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 
-public class SPNotiListenerService extends NotificationListenerService {
+public class SPNotiListenerService extends NotificationListenerService implements SensorEventListener {
     
     class PackageWrapper {
 	public String packageName;
@@ -40,20 +44,40 @@ public class SPNotiListenerService extends NotificationListenerService {
 	}
     }
     
-    Queue<StatusBarNotification> notiQueue = new LinkedList<StatusBarNotification>();
-    ArrayList<PackageWrapper> schedulablePackages = new ArrayList<PackageWrapper>();
+    private Queue<StatusBarNotification> notiQueue = new LinkedList<StatusBarNotification>();
+    private ArrayList<PackageWrapper> schedulablePackages = new ArrayList<PackageWrapper>();
+    private SchedulingManager mSchedulingManager;
     
     private boolean isRegistered = false;
+
+    private SensorManager mSensorManager;
+    private Sensor mAccelerometer;
+    private Sensor mGyro;
+
+    public void initSensors() {
+	mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+	mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	mGyro = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+	mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+	mSensorManager.registerListener(this, mGyro, SensorManager.SENSOR_DELAY_NORMAL);	
+    }
+
+    public Queue<StatusBarNotification> getNotiQueue() {
+	return notiQueue;
+    }
     
     @Override
     public void onCreate() {
 	super.onCreate();
 	Log.i("SPNotiListenerService", "onCreate()");
-	
+	mSchedulingManager = new SchedulingManager(SPNotiListenerService.this);
 	registerScreenEvent();
+	registerFgAppInfoReceiver();
 	if (!isRegistered) {
 	    isRegistered = true;
 	}
+
+	initSensors();
     }
 
     @Override
@@ -68,6 +92,7 @@ public class SPNotiListenerService extends NotificationListenerService {
 	Log.i("SPNotiListenerService", "onDestroy()");
 	if (isRegistered) {
 	    unregisterReceiver(mReceiver);
+	    unregisterReceiver(mFgAppInfoReceiver);
 	    isRegistered = false;
 	}
     }
@@ -89,7 +114,8 @@ public class SPNotiListenerService extends NotificationListenerService {
 	Log.i("SPScheduleService", "Text : " + text);
 	Log.i("SPScheduleService", "Sub Text : " + subText);
 	displaySchedulablePackage();
-	
+	String category = sbn.getNotification().category;
+	if (category != null && category.equals("scheduled")) return;
 	for (PackageWrapper p : schedulablePackages) {
 	    if (sbn.getPackageName().equals(p.packageName)) {
 		if (p.score > 7) {
@@ -99,13 +125,22 @@ public class SPNotiListenerService extends NotificationListenerService {
 		return;
 	    }
 	}
+
+	mSchedulingManager.onNotificationPosted(sbn);
     }
     
     public static int count = 0;
     String tmpPackageName;
     ArrayList<String> clearAllPackageNames = new ArrayList<String>();
+    
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
+	if (isInNotiQueue(sbn.getKey())) return; // scheduled notification
+	String category = sbn.getNotification().category;
+	if (category != null && category.equals("scheduled")) return;
+	
+	mSchedulingManager.onNotificationRemoved(sbn);
+	
 	clearAllPackageNames.add(sbn.getPackageName());
 	Log.i("NotificationListener", "onNotificationRemoved() - " + sbn.toString());
 	if (System.currentTimeMillis() - sbn.getPostTime() > 60000 * 60 * 6) {
@@ -160,6 +195,8 @@ public class SPNotiListenerService extends NotificationListenerService {
 	    public void onReceive(Context context, Intent intent) {
 		if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)) {
 		    Log.i("SPNotiListenerService", "screen off");
+		    mHandler.sendEmptyMessage(2);
+		    // mSchedulingManager.onScreenOff();
 		} else if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
 		    Log.i("SPNotiListenerService", "screen on");
 		    StatusBarNotification[] activeNotis = SPNotiListenerService.this.getActiveNotifications();
@@ -167,6 +204,8 @@ public class SPNotiListenerService extends NotificationListenerService {
 			createOrUpdateSchedulablePackage(noti.getPackageName(), 1);				
 		    }
 		    displaySchedulablePackage();
+		    mHandler.sendEmptyMessage(1);
+		    // mSchedulingManager.onScreenOn();
 		}
 	    }
 	};
@@ -177,6 +216,87 @@ public class SPNotiListenerService extends NotificationListenerService {
 
 	IntentFilter filterScreenOFF = new IntentFilter(Intent.ACTION_SCREEN_OFF);
 	registerReceiver(mReceiver, filterScreenOFF);
+    }
+
+    public boolean isInNotiQueue(String notiKey) {
+	for (StatusBarNotification sbn : notiQueue) {
+	    if (sbn.getKey().equals(notiKey)) return true;
+	}
+	return false;
+    }
+    
+    String prevPackageName = "";
+
+    private BroadcastReceiver mFgAppInfoReceiver = new BroadcastReceiver() {
+	    @Override
+	    public void onReceive(Context context, Intent intent) {
+		if (intent.getAction().equals(ScreenMonitorService.fgInfoAction)) {
+		    String packageName = intent.getStringExtra("packageName");
+		    Message message = Message.obtain(mHandler, 0, packageName);
+		    mHandler.sendMessage(message);
+		}
+	    }
+	};
+
+    public void registerFgAppInfoReceiver() {
+	IntentFilter filter = new IntentFilter();
+	filter.addAction(ScreenMonitorService.fgInfoAction);
+	registerReceiver(mFgAppInfoReceiver, filter);
+    }
+
+    Handler mHandler = new Handler() {
+	    @Override
+	    public void handleMessage(Message msg) {
+		switch(msg.what) {
+		case 0:
+		    String packageName = ((String)msg.obj);
+		    mSchedulingManager.onFgAppChanged(prevPackageName, packageName);
+		    prevPackageName = packageName;		    
+		    break;
+		case 1:
+		    mSchedulingManager.onScreenOn();		    
+		    break;
+		case 2:
+		    mSchedulingManager.onScreenOff();		    
+		    break;
+		}
+	    }
+	};
+
+    float prevAccAverage = 0;
+    float prevGyroAverage = 0;
+    boolean accFlag = false;
+    boolean gyroFlag = false;
+	
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+	if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+	    float accX = event.values[0];
+	    float accY = event.values[1];
+	    float accZ = event.values[2];
+	    
+	    float accAverage = (float)Math.sqrt((accX * accX + accY * accY + accZ * accZ));
+	    accFlag = (accAverage - prevAccAverage > 5);
+	    prevAccAverage = accAverage;
+	    // Log.i("SPScheduleService", "accAverage :" + accAverage);
+	} else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+	    float gyroX = event.values[0];
+	    float gyroY = event.values[1];
+	    float gyroZ = event.values[2];
+	    float gyroAverage = (float)Math.sqrt((gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ));
+	    gyroFlag = (gyroAverage - prevGyroAverage > 3);
+	    prevGyroAverage = gyroAverage;
+	    // Log.i("SPScheduleService", "gyroAverage :" + gyroAverage);
+	}
+	if (accFlag || gyroFlag) {
+	    String action = "moving";
+	    mSchedulingManager.onSensorEventTriggered(action);
+	}
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+	
     }
 }
 

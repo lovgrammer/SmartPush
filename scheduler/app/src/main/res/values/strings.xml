@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">SmartPushScheduler</string>
+  <string name="app_name">SmartPushScheduler</string>
+  <!-- Accessibility -->
+  <string name="accessibility_service_description">접근성 권한을 필요로 합니다.</string>
 </resources>
