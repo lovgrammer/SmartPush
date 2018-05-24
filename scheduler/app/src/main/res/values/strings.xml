@@ -1,5 +1,6 @@
 <resources>
-  <string name="app_name">SmartPushScheduler</string>
+  <string name="app_name">SmartPush</string>
   <!-- Accessibility -->
   <string name="accessibility_service_description">접근성 권한을 필요로 합니다.</string>
+  <string name="description">"SmartPush" is a project to serve highly personalized push notification. This application run background service which takes every notifications and show them in a proper time. By using this service, you can reduce interruption from notification, and you can see notification when you are willing to see. \n\n Before using it, you have to grant permission to SmartPush. SmartPush only uses those permission only for personalizing notification. Let's click below button to Start!</string>
 </resources>

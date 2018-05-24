@@ -1,16 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@color/colorPrimary"
     tools:context="msnl.unist.smartpushscheduler.MainActivity">
-
+  
+  <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:padding="16dip"
+      android:textSize="18dip"
+      android:textColor="#fff"
+      android:text="@string/description"/>
+  
   <Button
-      android:id="@+id/btn_start"
+      android:id="@+id/btn_noti_permission"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:layout_margin="16dip"
-      android:text="Start"/>
-
-</android.support.constraint.ConstraintLayout>
+      android:textSize="18dip"
+      android:text="Notification Permission"/>
+  
+  <Button
+      android:id="@+id/btn_acc_permission"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_margin="16dip"
+      android:textSize="18dip"
+      android:text="Accessibility Permission"/>
+  
+</LinearLayout>
