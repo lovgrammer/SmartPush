@@ -16,8 +16,8 @@ import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
     
-    private Button mNotiButton;
-    private Button mAccButton;
+    // private Button mNotiButton;
+    // private Button mAccButton;
 
     private Button mStartButton;
     
@@ -25,11 +25,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-	mNotiButton = (Button) findViewById(R.id.btn_noti_permission);
-	mAccButton = (Button) findViewById(R.id.btn_acc_permission);
+	// mNotiButton = (Button) findViewById(R.id.btn_noti_permission);
+	// mAccButton = (Button) findViewById(R.id.btn_acc_permission);
 	mStartButton = (Button) findViewById(R.id.btn_start);
-	mNotiButton.setOnClickListener(onButtonsClick);
-	mAccButton.setOnClickListener(onButtonsClick);
+	// mNotiButton.setOnClickListener(onButtonsClick);
+	// mAccButton.setOnClickListener(onButtonsClick);
 	mStartButton.setOnClickListener(onButtonsClick);
     }
 
@@ -37,18 +37,18 @@ public class MainActivity extends AppCompatActivity {
 	    @Override
 	    public void onClick(View v) {
 		switch(v.getId()) {
-		case R.id.btn_noti_permission:
-		    boolean isPermissionAllowed = isNotiPermissionAllowed();
-		    if (!isPermissionAllowed) {
-			Intent intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
-			startActivity(intent);
-		    }
-		    // Intent intent = new Intent(MainActivity.this, SPScheduleService.class);
-		    // startService(intent);
-		    break;
-		case R.id.btn_acc_permission:
-		    startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-		    break;
+		// case R.id.btn_noti_permission:
+		//     boolean isPermissionAllowed = isNotiPermissionAllowed();
+		//     if (!isPermissionAllowed) {
+		// 	Intent intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+		// 	startActivity(intent);
+		//     }
+		//     // Intent intent = new Intent(MainActivity.this, SPScheduleService.class);
+		//     // startService(intent);
+		//     break;
+		// case R.id.btn_acc_permission:
+		//     startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+		//     break;
 		case R.id.btn_start:
 		    // The request code used in ActivityCompat.requestPermissions()
 		    // and returned in the Activity's onRequestPermissionsResult()

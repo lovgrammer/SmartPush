@@ -9,16 +9,16 @@ import java.io.IOException;
 
 public class StatusDataCollector {
 
-    // immediate -> 1 / scheduled : 0
-    public static void saveNotiInfo(Context context, long postedTime, String packageName, int uid, int immediate) {
-	String content = postedTime + "," + packageName + "," + uid + "\n";
-	writeToFile(context, content, "noti.csv", "time,package,uid\n");
+    // immediate -> 1 / scheduled : 0 | schedulingOn -> 1, schedulingOff ->0
+    public static void saveNotiInfo(Context context, long postedTime, String packageName, int uid, int immediate, int schedulingOn) {
+	String content = postedTime + "," + packageName + "," + uid + "," + immediate + "," + schedulingOn + "\n";
+	writeToFile(context, content, "noti.csv", "time,package,uid,immediate,schedulingon\n");
     }
     
     // type 0 : seen, type 1 : decision
-    public static void saveSeenDecisionTime(Context context, long postedTime, String packageName, int uid, int type) {
-	String content = System.currentTimeMillis() + "," + postedTime + "," + packageName + "," + uid + "," + type + "\n";
-	writeToFile(context, content, "noti.csv", "time,posttime,package,uid,type\n");
+    public static void saveSeenDecisionTime(Context context, long postedTime, String packageName, int uid, int type, int schedulingOn) {
+	String content = System.currentTimeMillis() + "," + postedTime + "," + packageName + "," + uid + "," + type + "," + schedulingOn + "\n";
+	writeToFile(context, content, "seendecision.csv", "time,posttime,package,uid,type,schedulingon\n");
     }
 
     private static void writeToFile(Context context, String content, String fileName, String firstLine) {

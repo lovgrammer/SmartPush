@@ -28,6 +28,7 @@ import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Calendar;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Random;
@@ -102,6 +103,8 @@ public class SPNotiListenerService extends NotificationListenerService implement
     public void onNotificationPosted(StatusBarNotification sbn) {
 	Log.i("SPScheduleService", "PackageName : " + sbn.getPackageName());
 	Log.i("SPScheduleService", "PostTime : " + sbn.getPostTime());
+	
+	boolean schedulingOn = isSchedulingOn();
 
 	Notification notification = sbn.getNotification();
 	Bundle extras = notification.extras;
@@ -117,24 +120,30 @@ public class SPNotiListenerService extends NotificationListenerService implement
 	Log.i("SPScheduleService", "Sub Text : " + subText);
 	
 	displaySchedulablePackage();
-	String category = sbn.getNotification().category;
-	if (category != null && category.equals("scheduled")) {
+	// String category = sbn.getNotification().category;
+	// if (category != null && category.equals("scheduled")) {
+	String s = sbn.getNotification().extras.getString("scheduled");
+	if (s != null && s.equals("1")) {
 	    // scheduled notification finally posted
-	    StatusDataCollector.saveNotiInfo(SPNotiListenerService.this, System.currentTimeMillis(), sbn.getPackageName(), uid, 0);
+	    StatusDataCollector.saveNotiInfo(SPNotiListenerService.this, System.currentTimeMillis(), sbn.getPackageName(), uid, 0, schedulingOn ? 1 : 0);
 	    return;
 	}
-	for (PackageWrapper p : schedulablePackages) {
-	    if (sbn.getPackageName().equals(p.packageName)) {
-		if (p.score > 7) {
-		    // scheduled if score > 7
-		    notiQueue.offer(sbn);
-		    SPNotiListenerService.this.cancelNotification(sbn.getKey());		    
+	
+	if (schedulingOn) {
+	    for (PackageWrapper p : schedulablePackages) {
+		if (sbn.getPackageName().equals(p.packageName)) {
+		    if (p.score > 7) {
+			// scheduled if score > 7
+			notiQueue.offer(sbn);
+			SPNotiListenerService.this.cancelNotification(sbn.getKey());		    
+		    }
+		    return;
 		}
-		return;
 	    }
 	}
+	
 	// immediate push reach here
-	StatusDataCollector.saveNotiInfo(SPNotiListenerService.this, System.currentTimeMillis(), sbn.getPackageName(), uid, 1);
+	StatusDataCollector.saveNotiInfo(SPNotiListenerService.this, System.currentTimeMillis(), sbn.getPackageName(), uid, 1, schedulingOn ? 1 : 0);
 	mSchedulingManager.onNotificationPosted(sbn);
     }
     
@@ -145,11 +154,15 @@ public class SPNotiListenerService extends NotificationListenerService implement
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
 	if (isInNotiQueue(sbn.getKey())) return; // scheduled notification
-	String category = sbn.getNotification().category;
-	
+
+	boolean schedulingOn = isSchedulingOn();
+	    
 	// decision occurs for both scheduled/unscheduled notifications
-	StatusDataCollector.saveSeenDecisionTime(SPNotiListenerService.this, sbn.getPostTime(), sbn.getPackageName(), getUidFromPackagename(sbn.getPackageName()), 1);
-	if (category != null && category.equals("scheduled")) return;
+	StatusDataCollector.saveSeenDecisionTime(SPNotiListenerService.this, sbn.getPostTime(), sbn.getPackageName(), getUidFromPackagename(sbn.getPackageName()), 1, schedulingOn ? 1 : 0);
+	// String category = sbn.getNotification().category;
+	// if (category != null && category.equals("scheduled")) return;
+	String s = sbn.getNotification().extras.getString("scheduled");
+	if (s != null && s.equals("1")) return;
 
 	mSchedulingManager.onNotificationRemoved(sbn);
 	
@@ -212,9 +225,10 @@ public class SPNotiListenerService extends NotificationListenerService implement
 		} else if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
 		    Log.i("SPNotiListenerService", "screen on");
 		    StatusBarNotification[] activeNotis = SPNotiListenerService.this.getActiveNotifications();
-		    // assume all the notification is noticed by user whenever screen on occurs 
+		    // assume all the notification is noticed by user whenever screen on occurs
+		    boolean schedulingOn = isSchedulingOn();
 		    for (StatusBarNotification noti :activeNotis) {
-			StatusDataCollector.saveSeenDecisionTime(SPNotiListenerService.this, noti.getPostTime(), noti.getPackageName(), getUidFromPackagename(noti.getPackageName()), 0);
+			StatusDataCollector.saveSeenDecisionTime(SPNotiListenerService.this, noti.getPostTime(), noti.getPackageName(), getUidFromPackagename(noti.getPackageName()), 0, schedulingOn ? 1 : 0);
 			createOrUpdateSchedulablePackage(noti.getPackageName(), 1);				
 		    }
 		    displaySchedulablePackage();
@@ -321,6 +335,10 @@ public class SPNotiListenerService extends NotificationListenerService implement
 	    e.printStackTrace();
 	}
 	return uid;
+    }
+
+    public boolean isSchedulingOn() {
+	return (System.currentTimeMillis() / (3600000 * 5)) % 2 == 0;
     }
 }
 
