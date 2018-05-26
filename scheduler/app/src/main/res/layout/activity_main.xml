@@ -7,7 +7,6 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:background="@color/colorPrimary"
     tools:context="msnl.unist.smartpushscheduler.MainActivity">
   
   <TextView
@@ -15,8 +14,16 @@
       android:layout_height="wrap_content"
       android:padding="16dip"
       android:textSize="18dip"
-      android:textColor="#fff"
+      android:textColor="#000"
       android:text="@string/description"/>
+  
+  <Button
+      android:id="@+id/btn_start"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_margin="16dip"
+      android:textSize="18dip"
+      android:text="Start"/>
   
   <Button
       android:id="@+id/btn_noti_permission"

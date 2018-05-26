@@ -9,7 +9,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -28,10 +33,6 @@ import java.util.Queue;
 import java.util.Random;
 import org.json.JSONException;
 import org.json.JSONObject;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 
 public class SPNotiListenerService extends NotificationListenerService implements SensorEventListener {
     
@@ -109,23 +110,31 @@ public class SPNotiListenerService extends NotificationListenerService implement
 	Bitmap largeIcon = ((Bitmap) extras.getParcelable(Notification.EXTRA_LARGE_ICON));
 	CharSequence text = extras.getCharSequence(Notification.EXTRA_TEXT);
 	CharSequence subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT);
-
+	int uid = getUidFromPackagename(sbn.getPackageName());
+	
 	Log.i("SPScheduleService", "Title : " + title);
 	Log.i("SPScheduleService", "Text : " + text);
 	Log.i("SPScheduleService", "Sub Text : " + subText);
+	
 	displaySchedulablePackage();
 	String category = sbn.getNotification().category;
-	if (category != null && category.equals("scheduled")) return;
+	if (category != null && category.equals("scheduled")) {
+	    // scheduled notification finally posted
+	    StatusDataCollector.saveNotiInfo(SPNotiListenerService.this, System.currentTimeMillis(), sbn.getPackageName(), uid, 0);
+	    return;
+	}
 	for (PackageWrapper p : schedulablePackages) {
 	    if (sbn.getPackageName().equals(p.packageName)) {
 		if (p.score > 7) {
+		    // scheduled if score > 7
 		    notiQueue.offer(sbn);
 		    SPNotiListenerService.this.cancelNotification(sbn.getKey());		    
 		}
 		return;
 	    }
 	}
-
+	// immediate push reach here
+	StatusDataCollector.saveNotiInfo(SPNotiListenerService.this, System.currentTimeMillis(), sbn.getPackageName(), uid, 1);
 	mSchedulingManager.onNotificationPosted(sbn);
     }
     
@@ -137,8 +146,11 @@ public class SPNotiListenerService extends NotificationListenerService implement
     public void onNotificationRemoved(StatusBarNotification sbn) {
 	if (isInNotiQueue(sbn.getKey())) return; // scheduled notification
 	String category = sbn.getNotification().category;
-	if (category != null && category.equals("scheduled")) return;
 	
+	// decision occurs for both scheduled/unscheduled notifications
+	StatusDataCollector.saveSeenDecisionTime(SPNotiListenerService.this, sbn.getPostTime(), sbn.getPackageName(), getUidFromPackagename(sbn.getPackageName()), 1);
+	if (category != null && category.equals("scheduled")) return;
+
 	mSchedulingManager.onNotificationRemoved(sbn);
 	
 	clearAllPackageNames.add(sbn.getPackageName());
@@ -200,7 +212,9 @@ public class SPNotiListenerService extends NotificationListenerService implement
 		} else if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
 		    Log.i("SPNotiListenerService", "screen on");
 		    StatusBarNotification[] activeNotis = SPNotiListenerService.this.getActiveNotifications();
+		    // assume all the notification is noticed by user whenever screen on occurs 
 		    for (StatusBarNotification noti :activeNotis) {
+			StatusDataCollector.saveSeenDecisionTime(SPNotiListenerService.this, noti.getPostTime(), noti.getPackageName(), getUidFromPackagename(noti.getPackageName()), 0);
 			createOrUpdateSchedulablePackage(noti.getPackageName(), 1);				
 		    }
 		    displaySchedulablePackage();
@@ -297,6 +311,16 @@ public class SPNotiListenerService extends NotificationListenerService implement
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 	
+    }
+
+    public int getUidFromPackagename(String packageName) {
+	int uid = 0;
+	try {
+	    uid = this.getPackageManager().getApplicationInfo(packageName, 0).uid;
+	} catch (PackageManager.NameNotFoundException e) {
+	    e.printStackTrace();
+	}
+	return uid;
     }
 }
 
