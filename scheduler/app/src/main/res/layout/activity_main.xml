@@ -8,37 +8,41 @@
     android:orientation="vertical"
     android:gravity="center"
     tools:context="msnl.unist.smartpushscheduler.MainActivity">
-  
-  <TextView
+  <ScrollView
       android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:padding="16dip"
-      android:textSize="18dip"
-      android:textColor="#000"
-      android:text="@string/description"/>
-  
-  <Button
-      android:id="@+id/btn_start"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_margin="16dip"
-      android:textSize="18dip"
-      android:text="Start"/>
-  
-  <Button
-      android:id="@+id/btn_noti_permission"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_margin="16dip"
-      android:textSize="18dip"
-      android:text="Notification Permission"/>
-  
-  <Button
-      android:id="@+id/btn_acc_permission"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_margin="16dip"
-      android:textSize="18dip"
-      android:text="Accessibility Permission"/>
-  
+      android:layout_height="match_parent">
+    <LinearLayout
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+      <TextView
+	  android:layout_width="match_parent"
+	  android:layout_height="wrap_content"
+	  android:padding="16dip"
+	  android:textSize="18dip"
+	  android:textColor="#000"
+	  android:text="@string/description"/>
+      <Button
+	  android:id="@+id/btn_start"
+	  android:layout_width="match_parent"
+	  android:layout_height="wrap_content"
+	  android:layout_margin="16dip"
+	  android:textSize="18dip"
+	  android:text="Write Permission"/>
+      <Button
+	  android:id="@+id/btn_noti_permission"
+	  android:layout_width="match_parent"
+	  android:layout_height="wrap_content"
+	  android:layout_margin="16dip"
+	  android:textSize="18dip"
+	  android:text="Notification Permission"/>
+      <Button
+	  android:id="@+id/btn_acc_permission"
+	  android:layout_width="match_parent"
+	  android:layout_height="wrap_content"
+	  android:layout_margin="16dip"
+	  android:textSize="18dip"
+	  android:text="Accessibility Permission"/>
+    </LinearLayout>
+  </ScrollView>
 </LinearLayout>

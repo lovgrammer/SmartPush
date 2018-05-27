@@ -24,8 +24,8 @@ public class StatusDataCollector {
     private static void writeToFile(Context context, String content, String fileName, String firstLine) {
 	FileWriter fileWriter = null;
 	// String dir = context.getFilesDir().getAbsolutePath();
-	// File file = new File("/storage/emulated/0/" + fileName);
-	File file = new File(context.getFilesDir(), fileName);
+	File file = new File("/storage/emulated/0/" + fileName);
+	// File file = new File(context.getFilesDir(), fileName);
 	Log.i("StatusDataCollector", file.getAbsolutePath());
 	boolean notfound = false;
 	if (!file.exists()) {

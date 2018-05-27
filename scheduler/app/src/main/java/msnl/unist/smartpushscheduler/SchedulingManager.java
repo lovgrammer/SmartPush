@@ -39,8 +39,8 @@ public class SchedulingManager {
 	if ( mService == null ) return;
 	StatusBarNotification sbn = mService.getNotiQueue().poll();
 	if (sbn != null) {
-	    // sbn.getNotification().category = "scheduled";
-	    sbn.getNotification().extras.putString("scheduled", "1");
+	    sbn.getNotification().category = "scheduled";
+	    // sbn.getNotification().extras.putString("scheduled", "1");
 	    mManager.notify(0, sbn.getNotification());
 	}
     }
@@ -61,8 +61,8 @@ public class SchedulingManager {
 	if (action.equals("moving")) {
 	    StatusBarNotification sbn = mService.getNotiQueue().poll();
 	    if (sbn != null) {
-		// sbn.getNotification().category = "scheduled";
-		sbn.getNotification().extras.putString("scheduled", "1");
+		sbn.getNotification().category = "scheduled";
+		// sbn.getNotification().extras.putString("scheduled", "1");
 		mManager.notify(0, sbn.getNotification());
 	    }	    
 	}
