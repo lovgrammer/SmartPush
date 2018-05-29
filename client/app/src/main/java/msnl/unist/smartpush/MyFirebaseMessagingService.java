@@ -1,13 +1,18 @@
 package msnl.unist.smartpush;
 
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.media.RingtoneManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
@@ -28,6 +33,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     static final int NOTI_ARRIVED = 1;
     public static final String ACTION_CUSTOM = "msnl.unist.smartpushscheduler.ACTION_CUSTOM";
 
+    private NotificationManager mNotiManager;
+
     private ServiceConnection mConnection = new ServiceConnection() {
 	    public void onServiceConnected(ComponentName className, IBinder service) {
 		mService = new Messenger(service);
@@ -43,6 +50,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     @Override
     public void onCreate() {
 	super.onCreate();
+	mNotiManager
+	    = (NotificationManager) MyFirebaseMessagingService.this.getSystemService(Context.NOTIFICATION_SERVICE);
 	if (!mBound) {
 	    doBindService();
 	}
@@ -88,7 +97,20 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             Log.d(TAG, "Message Notification Body: " + remoteMessage.getNotification().getBody());
         }
 
-	scheduleJob(remoteMessage);
+	// scheduleJob(remoteMessage);
+	// remoteMessage.getNotification().notify();
+	// mNotiManager.notify(1, remoteMessage.getNotification());
+	NotificationCompat.Builder mBuilder =
+	    new NotificationCompat.Builder(MyFirebaseMessagingService.this)
+	    .setSmallIcon(MyFirebaseMessagingService.this.getApplicationInfo().icon)
+	    .setContentTitle(remoteMessage.getNotification().getTitle())
+	    .setContentText(remoteMessage.getNotification().getBody())
+	    .setDefaults(Notification.DEFAULT_ALL)
+	    .setPriority(NotificationManager.IMPORTANCE_HIGH);
+	    mBuilder.setAutoCancel(true);
+	
+	    mBuilder.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+	    mNotiManager.notify(1, mBuilder.build());	
     }
 
     @Override

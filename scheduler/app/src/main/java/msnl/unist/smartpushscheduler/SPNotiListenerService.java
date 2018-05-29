@@ -120,11 +120,11 @@ public class SPNotiListenerService extends NotificationListenerService implement
 	Log.i("SPScheduleService", "Sub Text : " + subText);
 	
 	displaySchedulablePackage();
-	String category = sbn.getNotification().category;
-	if (category != null && category.equals("scheduled")) {
+	// String category = sbn.getNotification().category;
+	// if (category != null && category.equals("scheduled")) {
 	    
-	// String s = sbn.getNotification().extras.getString("scheduled");
-	// if (s != null && s.equals("1")) {
+	String s = sbn.getNotification().extras.getString("scheduled");
+	if (s != null && s.equals("1")) {
 	    
 	    // scheduled notification finally posted
 	    StatusDataCollector.saveNotiInfo(SPNotiListenerService.this, System.currentTimeMillis(), sbn.getPackageName(), uid, 0, schedulingOn ? 1 : 0);
@@ -161,10 +161,10 @@ public class SPNotiListenerService extends NotificationListenerService implement
 	    
 	// decision occurs for both scheduled/unscheduled notifications
 	StatusDataCollector.saveSeenDecisionTime(SPNotiListenerService.this, sbn.getPostTime(), sbn.getPackageName(), getUidFromPackagename(sbn.getPackageName()), 1, schedulingOn ? 1 : 0);
-	String category = sbn.getNotification().category;
-	if (category != null && category.equals("scheduled")) return;
-	// String s = sbn.getNotification().extras.getString("scheduled");
-	// if (s != null && s.equals("1")) return;
+	// String category = sbn.getNotification().category;
+	// if (category != null && category.equals("scheduled")) return;
+	String s = sbn.getNotification().extras.getString("scheduled");
+	if (s != null && s.equals("1")) return;
 
 	mSchedulingManager.onNotificationRemoved(sbn);
 	
@@ -340,7 +340,8 @@ public class SPNotiListenerService extends NotificationListenerService implement
     }
 
     public boolean isSchedulingOn() {
-	return (System.currentTimeMillis() / (3600000 * 5)) % 2 == 0;
+	// return (System.currentTimeMillis() / (3600000 * 5)) % 2 == 0;
+	return true;
     }
 }
 

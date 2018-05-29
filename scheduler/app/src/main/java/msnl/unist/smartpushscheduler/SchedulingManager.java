@@ -9,6 +9,9 @@ import com.gc.android.market.api.MarketSession;
 import com.gc.android.market.api.model.Market.AppsRequest;
 import com.gc.android.market.api.model.Market.AppsResponse;
 import com.gc.android.market.api.model.Market.ResponseContext;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class SchedulingManager {
     
@@ -39,9 +42,10 @@ public class SchedulingManager {
 	if ( mService == null ) return;
 	StatusBarNotification sbn = mService.getNotiQueue().poll();
 	if (sbn != null) {
-	    sbn.getNotification().category = "scheduled";
-	    // sbn.getNotification().extras.putString("scheduled", "1");
-	    mManager.notify(0, sbn.getNotification());
+	    // sbn.getNotification().category = "scheduled";
+	    sbn.getNotification().extras.putString("scheduled", "1");
+	    // sbn.getNotification().flags = Notification
+	    mManager.notify(sbn.getId(), sbn.getNotification());
 	}
     }
 
@@ -50,7 +54,7 @@ public class SchedulingManager {
 	// getCategoryWithPackageName(packageName);
 	for (StatusBarNotification noti : mService.getNotiQueue()) {
 	    if (packageName.equals(noti.getPackageName())) {
-		mManager.notify(0, noti.getNotification());
+		mManager.notify(noti.getId(), noti.getNotification());
 		mService.getNotiQueue().remove(noti);
 		break;
 	    }
@@ -61,9 +65,9 @@ public class SchedulingManager {
 	if (action.equals("moving")) {
 	    StatusBarNotification sbn = mService.getNotiQueue().poll();
 	    if (sbn != null) {
-		sbn.getNotification().category = "scheduled";
-		// sbn.getNotification().extras.putString("scheduled", "1");
-		mManager.notify(0, sbn.getNotification());
+		// sbn.getNotification().category = "scheduled";
+		sbn.getNotification().extras.putString("scheduled", "1");
+		mManager.notify(sbn.getId(), sbn.getNotification());
 	    }	    
 	}
     }
@@ -96,4 +100,10 @@ public class SchedulingManager {
     // 	    };
     // 	t.start();
     // }
+
+    public int createID(){
+	Date now = new Date();
+	int id = Integer.parseInt(new SimpleDateFormat("ddHHmmss",  Locale.US).format(now));
+	return id;
+    }
 }
